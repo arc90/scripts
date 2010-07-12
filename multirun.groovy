@@ -23,8 +23,8 @@ concurrency.times {
     Thread.start {
         iterations.times {
             process = command.execute()
-			process.consumeProcessOutput(System.out, System.err)
-			process.waitFor()
+            process.consumeProcessOutput(System.out, System.err)
+            process.waitFor()
         }
-	}
+    }
 }
