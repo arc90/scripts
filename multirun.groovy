@@ -27,7 +27,7 @@ cli.with {
     c longOpt: 'concurrency', args: 1, argName: 'concurrency', 'The number of threads which will iterations. Default: 1.'
     i longOpt: 'iterations', args: 1, argName: 'iterations', 'The number of iterations each thread should run. Default: 1.'
     t longOpt: 'timeout', args: 1, argName: 'timeout', 'The number of seconds to wait until killing each process. 0 means no timeout. Default: 0.'
-    v longOpt: 'verbose', 'If set, information will be printed before and after each invocation of the command.'
+    v longOpt: 'verbose', 'If set, information will be output to standard error before and after each invocation of the command.'
 }
 
 opts = cli.parse(args)
@@ -43,10 +43,11 @@ timeout = opts.t ? opts.t as Integer : 0
 verbose = opts.v as Boolean
 
 if (verbose)
-    println "[multirun] running $command $iterations times in each of $concurrency threads"
+    System.err.println "[multirun] running $command $iterations times in each of $concurrency threads"
 
 Process.metaClass.getPid = {
     // from: http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4244896   
+    // it's too hard on Windows, oh well
     if (delegate.class.name == 'java.lang.UNIXProcess') {
         try {
             f = delegate.class.getDeclaredField('pid')
@@ -61,14 +62,29 @@ Process.metaClass.getPid = {
 concurrency.times {
     Thread.start {
         iterations.times {
-            if (verbose)
-                println "[multirun] thread ${Thread.currentThread().id} executing iteration ${it+1}"
+
+            // local vars
+            def prefix, start, process, pid, duration, exitcode
             
-            // TODO: pass stdin to process? Or is that automatic? Probably not.
+            if (verbose) {
+                prefix = "\n[multirun] thread ${Thread.currentThread().id}, iteration ${it+1}: "
+                System.err.println prefix + 'starting'
+            }
+            
+            start = System.currentTimeMillis()  
+
             process = command.execute()
+
             process.consumeProcessOutput(System.out, System.err)
             
+            if (verbose) {
+                pid = process.pid
+                System.err.println prefix + "spawned process $pid"
+            }
+            
             timeout ? process.waitForOrKill(timeout * 1000) : process.waitFor()
+
+            duration = System.currentTimeMillis() - start
 
             System.out.flush()
             System.err.flush()
@@ -80,9 +96,10 @@ concurrency.times {
             }
             
             if (verbose && timeout && exitcode == 143)
-                println "\n[multirun] process ${process.getPid()} killed (probably because of timeout)"
-            else if (verbose && exitcode)
-                println "\n[multirun] process ${process.getPid()} exited with exit code $exitcode"
-        }
+                System.err.println prefix + "process $pid killed after $duration MS (probably because of timeout)"
+            else if (verbose)
+                System.err.println prefix + "process $pid exited with exit code $exitcode after $duration MS"
+            
+         }
     }
 }
