@@ -21,13 +21,15 @@
  *
  */ 
 
-cli = new CliBuilder(usage: '[groovy] multirun[.groovy] [-c concurrency] [-i iterations] [command]')
+cli = new CliBuilder(usage: '[groovy] multirun[.groovy] [-c concurrency] [-i iterations] [-t timeout] [-p pause] [command]')
 
 cli.with {
     c longOpt: 'concurrency', args: 1, argName: 'concurrency', 'The number of threads which will iterations. Default: 1.'
     i longOpt: 'iterations', args: 1, argName: 'iterations', 'The number of iterations each thread should run. Default: 1.'
     t longOpt: 'timeout', args: 1, argName: 'timeout', 'The number of seconds to wait until killing each process. 0 means no timeout. Default: 0.'
+    p longOpt: 'pause', args:1, argName: 'pause', 'The number of seconds to pause between each iteration. Default: 0'
     v longOpt: 'verbose', 'If set, information will be output to standard error before and after each invocation of the command.'
+    h longOpt: 'help', 'Display this message.'
 }
 
 opts = cli.parse(args)
@@ -40,6 +42,7 @@ command = opts.arguments().join(' ')
 concurrency = opts.c ? opts.c as Integer : 1
 iterations = opts.i ? opts.i as Integer : 1
 timeout = opts.t ? opts.t as Integer : 0
+pause = opts.p ? opts.p as Integer : 0
 verbose = opts.v as Boolean
 
 if (verbose)
@@ -100,6 +103,8 @@ concurrency.times {
             else if (verbose)
                 System.err.println prefix + "process $pid exited with exit code $exitcode after $duration MS"
             
+            if (pause && it + 1 < iterations)
+                Thread.sleep(pause * 1000)
          }
     }
 }
